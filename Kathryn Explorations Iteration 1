@@ -1,0 +1,25 @@
+-- Welcome to your new notebook
+-- Type here in the cell editor to add code!
+SELECT *
+FROM SAN_Disbursements;
+
+--SELECT *
+--FROM SAN_RecipientFeedback;
+
+SELECT *
+FROM SAN_RecipientPayments;
+
+SELECT DisbursementStatusName, Revocation_ReasonName
+FROM SAN_Disbursements
+WHERE Revocation_ReasonName IS NOT NULL;
+
+SELECT DISTINCT PaymentVehicleType
+FROM SAN_RecipientPayments;
+
+SELECT DISTINCT AllocationAmount, PaymentAmount, PaymentVehicleType, PaymentStatus
+FROM SAN_RecipientPayments
+WHERE PaymentStatus <> 'Complete';
+
+SELECT AllocationAmount, PaymentAmount, PaymentVehicleType, PaymentStatus
+FROM SAN_RecipientPayments
+WHERE PaymentStatus <> 'Complete';

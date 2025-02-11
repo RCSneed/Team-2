@@ -23,3 +23,25 @@ WHERE PaymentStatus <> 'Complete';
 SELECT AllocationAmount, PaymentAmount, PaymentVehicleType, PaymentStatus
 FROM SAN_RecipientPayments
 WHERE PaymentStatus <> 'Complete';
+
+
+-- Iteration 2
+SELECT count(PaymentVehicleType)
+FROM df_SAN_RecipientPayments
+WHERE PaymentVehicleType = 'ACH' AND PaymentStatus = 'Errored'
+UNION
+SELECT count(PaymentVehicleType)
+FROM df_SAN_RecipientPayments
+WHERE PaymentVehicleType = 'ACH' AND PaymentStatus = 'Complete';
+
+SELECT count(DisbursementsId)
+FROM df_SAN_Disbursements
+
+
+select ProductsId
+from df_SAN_Disbursements
+where ProductsId == '4545'
+
+-- Added a file to the lakehouse using the ui and also created a table using the ui
+
+-- Created visualizations inside Power Bi using a semantic that I created

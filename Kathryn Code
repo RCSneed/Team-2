@@ -45,3 +45,5 @@ where ProductsId == '4545'
 -- Added a file to the lakehouse using the ui and also created a table using the ui
 
 -- Created visualizations inside Power Bi using a semantic that I created
+
+-- Created more visualizations in Power Bi (Maps, Timeseries, Pie chart), created new tables, added relationships on semantic model.

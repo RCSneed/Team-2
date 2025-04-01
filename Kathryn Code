@@ -47,3 +47,66 @@ where ProductsId == '4545'
 -- Created visualizations inside Power Bi using a semantic that I created
 
 -- Created more visualizations in Power Bi (Maps, Timeseries, Pie chart), created new tables, added relationships on semantic model.
+
+%%pyspark
+import pandas as pd
+from pyspark.sql import SparkSession
+from sklearn.preprocessing import LabelEncoder
+spark = SparkSession.builder.appName("Sanitized_Refund_Lakehouse").getOrCreate()
+
+Apartmentdf = spark.read.table("SAN_ApartmentNameRef")
+Disbursementdf = spark.read.table("df_SAN_Disbursements")
+Popdf = spark.read.table("zip_population")
+RecipFeeddf = spark.read.table("df_SAN_Recipient_Feedback")
+RecipPaydf = spark.read.table("df_SAN_RecipientPayments")
+Apartmentpan = Apartmentdf.toPandas()
+Disbursementpan = Disbursementdf.toPandas()
+Poppan = Popdf.toPandas()
+RecipFeedpan = RecipFeeddf.toPandas()
+RecipPaypan = RecipPaydf.toPandas()
+
+newdf = Apartmentpan.merge(Poppan, how='left', left_on='Zip', right_on='zip')
+FirstJoin = newdf[['SanitizedName', 'ProductId', 'Zip', 'population']]
+DisbursementpanComb = Disbursementpan.merge(RecipPaypan, how='left', left_on='DisbursementsId', right_on='DisbursementsId')
+DisbursementPanRecComb = DisbursementpanComb.merge(RecipFeedpan, how='left', left_on='RecipientsId', right_on='RecipientsId')
+secdf = FirstJoin.merge(DisbursementPanRecComb, how='right', left_on='ProductId', right_on='ProductsId')
+print(DisbursementpanComb)
+
+
+
+SecondJoin = secdf[['ProductId', 'Zip', 'population','DisbursementStatusName', 'TotalAmount', 'num_Recipients', 'num_RecipientAllocations', 'Revocation_ReasonName', 'DisbursementPartyType', 'Stars', 'IsPrimary', 'PaymentMade_Flag', 'AllocationAmount', 'PaymentAmount', 'PaymentVehicleType']]
+
+SecondJoinClean = SecondJoin[SecondJoin['Zip'] != '02210-2041']
+
+
+SecondJoinCleaned = SecondJoinClean[SecondJoinClean['Zip'] != ' Blackgum Woods']
+
+
+le = LabelEncoder()
+SecondJoinCleaned['DisbursementStatusName'] = le.fit_transform(SecondJoinCleaned['DisbursementStatusName'])
+SecondJoinCleaned['Revocation_ReasonName'] = le.fit_transform(SecondJoinCleaned['Revocation_ReasonName'])
+SecondJoinCleaned['DisbursementPartyType'] = le.fit_transform(SecondJoinCleaned['DisbursementPartyType'])
+SecondJoinCleaned['PaymentMade_Flag'] = le.fit_transform(SecondJoinCleaned['PaymentMade_Flag'])
+SecondJoinCleaned['PaymentVehicleType'] = le.fit_transform(SecondJoinCleaned['PaymentVehicleType'])
+
+
+SecondJoinCleaned['DisbursementStatusName'] = SecondJoinCleaned.groupby('Zip')['DisbursementStatusName'].transform('mean')
+SecondJoinCleaned['TotalAmount'] = SecondJoinCleaned.groupby('Zip')['TotalAmount'].transform('mean')
+SecondJoinCleaned['num_Recipients'] = SecondJoinCleaned.groupby('Zip')['num_Recipients'].transform('mean')
+SecondJoinCleaned['num_RecipientAllocations'] = SecondJoinCleaned.groupby('Zip')['num_RecipientAllocations'].transform('mean')
+SecondJoinCleaned['num_Recipients'] = SecondJoinCleaned.groupby('Zip')['num_Recipients'].transform('mean')
+SecondJoinCleaned['DisbursementPartyType'] = SecondJoinCleaned.groupby('Zip')['DisbursementPartyType'].transform('mean')
+SecondJoinCleaned['Stars'] = SecondJoinCleaned.groupby('Zip')['Stars'].transform('mean')
+SecondJoinCleaned['IsPrimary'] = SecondJoinCleaned.groupby('Zip')['IsPrimary'].transform('mean')
+SecondJoinCleaned['PaymentMade_Flag'] = SecondJoinCleaned.groupby('Zip')['PaymentMade_Flag'].transform('mean')
+SecondJoinCleaned['AllocationAmount'] = SecondJoinCleaned.groupby('Zip')['AllocationAmount'].transform('mean')
+SecondJoinCleaned['PaymentAmount'] = SecondJoinCleaned.groupby('Zip')['PaymentAmount'].transform('mean')
+SecondJoinCleaned['PaymentVehicleType'] = SecondJoinCleaned.groupby('Zip')['PaymentVehicleType'].transform('mean')
+
+
+
+
+matrix = SecondJoinCleaned.corr()
+matrix.style.background_gradient()
+
+--Also created to visualization in power bi and reformatted other visualizations from previous iterations

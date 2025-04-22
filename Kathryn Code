@@ -103,10 +103,15 @@ SecondJoinCleaned['AllocationAmount'] = SecondJoinCleaned.groupby('Zip')['Alloca
 SecondJoinCleaned['PaymentAmount'] = SecondJoinCleaned.groupby('Zip')['PaymentAmount'].transform('mean')
 SecondJoinCleaned['PaymentVehicleType'] = SecondJoinCleaned.groupby('Zip')['PaymentVehicleType'].transform('mean')
 
-
-
+// Iteration 5 changes
+// Made changes to the correlation matrix
 
 matrix = SecondJoinCleaned.corr()
 matrix.style.background_gradient()
+colHide = [col for col in SecondJoinCleaned.columns if col != 'population']
+styPop = styMatrix.hide(colHide, axis="columns")
+styPop
+
+// Added 4 graphs in power bi, 3 scatter plots and 1 bar chart.
 
 --Also created to visualization in power bi and reformatted other visualizations from previous iterations

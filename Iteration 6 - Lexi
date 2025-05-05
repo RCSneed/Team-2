@@ -1,0 +1,185 @@
+#correlation matrix
+df = spark.read.table("Sanitized_Refund_Lakehouse.income_insights_final")
+pdf = df.toPandas()
+
+
+numeric_cols = [
+    "MedianIncome", "completion_rate", "expiration_rate", 
+    "avg_feedback", "single_party_count", "multi_party_count"
+]
+
+import pandas as pd
+import numpy as np
+from scipy.stats import pearsonr
+
+
+corr_matrix = pdf[numeric_cols].corr().round(3)
+corr_matrix_df = corr_matrix.reset_index().melt(id_vars="index")
+corr_matrix_df.columns = ["Variable X", "Variable Y", "Correlation"]
+corr_matrix_df = corr_matrix_df[corr_matrix_df["Variable X"] <= corr_matrix_df["Variable Y"]]
+
+results = []
+for var in numeric_cols:
+    if var != "MedianIncome":
+        valid = pdf[["MedianIncome", var]].dropna()
+        if len(valid) > 2:
+            r, p = pearsonr(valid["MedianIncome"], valid[var])
+            results.append({
+                "Variable": var,
+                "CorrelationWithMedianIncome": round(r, 3),
+                "PValue": round(p, 5)
+            })
+
+median_corr_df = pd.DataFrame(results)
+
+
+corr_matrix_sdf = spark.createDataFrame(corr_matrix_df)
+median_corr_sdf = spark.createDataFrame(median_corr_df)
+
+corr_matrix_sdf.write.mode("overwrite").saveAsTable("your_lakehouse_schema.full_correlation_matrix")
+median_corr_sdf.write.mode("overwrite").saveAsTable("your_lakehouse_schema.median_income_correlation_with_pvalues")
+
+display(corr_matrix_sdf)
+display(median_corr_sdf)
+
+
+# Fabric Notebook: Plot MedianIncome vs Completion/Expiration Rate by IncomeGroup
+
+import matplotlib.pyplot as plt
+import numpy as np
+import seaborn as sns
+
+# Step 1: Load the dataset
+df = spark.read.table("Sanitized_Refund_Lakehouse.income_insights_final")
+selected_df = df.select("MedianIncome", "completion_rate", "expiration_rate", "IncomeGroup").dropna()
+pdf = selected_df.toPandas()
+
+# Step 2: Plot by IncomeGroup
+plt.figure(figsize=(10, 7))
+groups = pdf["IncomeGroup"].unique()
+
+for group in groups:
+    group_data = pdf[pdf["IncomeGroup"] == group]
+    x = group_data["MedianIncome"]
+    # Completion Rate
+    y1 = group_data["completion_rate"]
+    m1, b1 = np.polyfit(x, y1, 1)
+    plt.plot(x, m1*x + b1, label=f"{group} - Completion", linestyle='-', linewidth=2)
+  
+
+    # Expiration Rate
+    y2 = group_data["expiration_rate"]
+    m2, b2 = np.polyfit(x, y2, 1)
+    plt.plot(x, m2*x + b2, label=f"{group} - Expiration", linestyle='-', linewidth=2)
+
+
+# Formatting
+plt.scatter(pdf["MedianIncome"], pdf["completion_rate"], alpha=0.4, color='blue', label='Data Points')
+plt.scatter(pdf["MedianIncome"], pdf["expiration_rate"], alpha=0.4, color='orange', label='Data Points', )
+plt.xlabel("Median Income")
+plt.ylabel("Rate")
+plt.title("Completion and Expiration Rate vs Median Income by Income Group")
+plt.legend()
+plt.grid(True)
+plt.tight_layout()
+plt.show()
+
+#Heatmap 
+
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+
+df = spark.read.table("Sanitized_Refund_Lakehouse.income_insights_final")
+
+numeric_cols = [
+    "MedianIncome", "completion_rate", "expiration_rate",
+    "avg_feedback", "single_party_count", "multi_party_count"
+]
+
+df_clean = df.select(numeric_cols).dropna()
+data = df_clean.toPandas()
+
+corr = data.corr().round(3)
+
+pivoted_corr_df = corr.reset_index().rename(columns={"index": "Variable"})
+pivoted_corr_sdf = spark.createDataFrame(pivoted_corr_df)
+pivoted_corr_sdf.write.mode("overwrite").saveAsTable("Sanitized_Refund_Lakehouse.income_correlation_matrix")
+
+flat_corr_df = corr.reset_index().melt(id_vars="index")
+flat_corr_df.columns = ["VariableX", "VariableY", "Correlation"]
+flat_corr_df = flat_corr_df[flat_corr_df["VariableX"] <= flat_corr_df["VariableY"]]
+flat_corr_sdf = spark.createDataFrame(flat_corr_df)
+flat_corr_sdf.write.mode("overwrite").saveAsTable("Sanitized_Refund_Lakehouse.income_correlation_flat")
+
+fig, ax = plt.subplots(figsize=(9, 7))
+cax = ax.matshow(corr, cmap='coolwarm', vmin=-1, vmax=1)
+
+ax.set_xticks(range(len(corr.columns)))
+ax.set_yticks(range(len(corr.columns)))
+ax.set_xticklabels(corr.columns, rotation=45, ha='left')
+ax.set_yticklabels(corr.columns)
+
+for (i, j), val in np.ndenumerate(corr.values):
+    ax.text(j, i, f"{val:.2f}", ha='center', va='center', color='black')
+
+plt.colorbar(cax, fraction=0.046, pad=0.04)
+plt.title("Correlation Matrix")
+plt.tight_layout()
+plt.show()
+
+insight_new = insight_final.join(
+    dis_df.select("DisbursementsId", "TotalAmount"),
+    on="DisbursementsId",
+    how="left"
+)
+
+from pyspark.sql.functions import count, when
+ 
+party_type_by_zip = df.groupBy("Zip").agg(
+    count("*").alias("total_disbursements"),
+    count(when(col("DisbursementPartyType") == "Single", True)).alias("single_party_count"),
+    count(when(col("DisbursementPartyType") == "Multi", True)).alias("multi_party_count")
+)
+
+from pyspark.sql import functions as F
+
+ 
+state_dis_count = insight_final.groupBy("state").agg(
+
+    F.countDistinct("SanitizedName").alias("StateApartmentCount")
+)
+from pyspark.sql.functions import col, count, when, round
+ 
+# Group and count total, expired, and completed disbursements per ZIP
+zip_stats_df = disbursements_with_zip.groupBy("Zip").agg(
+    count("*").alias("total_disbursements"),
+    count(when(col("DisbursementStatusName") == "Expired", True)).alias("expired_count"),
+    count(when(col("DisbursementStatusName") == "Complete", True)).alias("completed_count")
+)
+ 
+# Calculate rates
+zip_rates_df = zip_stats_df \
+    .withColumn("expiration_rate", round(col("expired_count") / col("total_disbursements"), 3)) \
+    .withColumn("completion_rate", round(col("completed_count") / col("total_disbursements"), 3))
+ 
+# Show the result
+display(zip_rates_df)
+
+city_dis_count = insight_final.groupBy("city").agg(
+
+    F.countDistinct("SanitizedName").alias("CityApartmentCount")
+)
+
+disbursements_with_zip_df = spark.read.table("disbursements_with_zip")
+zip_rates_df = spark.read.table("zip_rates")
+ 
+# Perform the join on "Zip"
+disbursements_with_rates = disbursements_with_zip_df.join(
+    zip_rates_df,
+    on="Zip",
+    how="left"
+)
+ 
+# Preview the joined result
+display(disbursements_with_rates)
